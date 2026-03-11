@@ -9,6 +9,10 @@ node_modules/
 out/
 .npm-cache/
 package-lock.json
+serve.log
+serve.err.log
+lt.log
+lt.err.log
 .env*.local
 .DS_Store
 .vercel

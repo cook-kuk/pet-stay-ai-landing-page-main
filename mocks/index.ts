@@ -1,0 +1,1 @@
+export { seedSummary } from '@/data/mock-db'

@@ -1,0 +1,223 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum GroupType {
+  type
+  breed
+  local
+}
+
+enum PlanType {
+  today
+  pre_leave
+  after_return
+  seven_day
+}
+
+enum ReportType {
+  after_leave
+  weekly_change
+  personality_trend
+  routine_effectiveness
+}
+
+enum RecommendationType {
+  routine
+  community
+  shop
+  bundle
+  premium
+}
+
+enum SavedItemType {
+  result_card
+  product
+  bundle
+  group
+  report
+}
+
+model User {
+  id             String         @id @default(cuid())
+  email          String         @unique
+  name           String
+  avatar         String?
+  createdAt      DateTime       @default(now())
+  ownerProfile   OwnerProfile?
+  petProfiles    PetProfile[]
+  posts          CommunityPost[]
+  savedItems     SavedItem[]
+  familyMembers  FamilyMember[]
+}
+
+model OwnerProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  personalityType String
+  lifestyle       String
+  location        String
+  preferences     Json
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PetProfile {
+  id                  String              @id @default(cuid())
+  userId              String
+  name                String
+  breed               String
+  ageMonths           Int
+  size                String
+  weight              Float
+  sex                 String
+  neutered            Boolean
+  avatar              String?
+  mainPersonalityType String
+  subTraits           Json
+  createdAt           DateTime            @default(now())
+  user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  personalityResults  PersonalityResult[]
+  videoUploads        VideoUpload[]
+  routinePlans        RoutinePlan[]
+  routineLogs         RoutineLog[]
+  reports             Report[]
+  recommendations     Recommendation[]
+  familyMembers       FamilyMember[]
+  sitterAccess        SitterAccess[]
+}
+
+model PersonalityResult {
+  id             String    @id @default(cuid())
+  petProfileId   String
+  typeSlug       String
+  confidence     Float
+  summary        String
+  resultCardData Json
+  createdAt      DateTime  @default(now())
+  petProfile     PetProfile @relation(fields: [petProfileId], references: [id], onDelete: Cascade)
+}
+
+model VideoUpload {
+  id           String    @id @default(cuid())
+  petProfileId String
+  fileUrl      String
+  duration     Int
+  status       String
+  analyzedAt   DateTime?
+  petProfile   PetProfile @relation(fields: [petProfileId], references: [id], onDelete: Cascade)
+}
+
+model RoutinePlan {
+  id           String    @id @default(cuid())
+  petProfileId String
+  typeSlug     String
+  title        String
+  planType     PlanType
+  items        Json
+  createdAt    DateTime  @default(now())
+  petProfile   PetProfile @relation(fields: [petProfileId], references: [id], onDelete: Cascade)
+}
+
+model RoutineLog {
+  id             String    @id @default(cuid())
+  petProfileId    String
+  date           DateTime
+  completedItems Json
+  notes          String?
+  petProfile     PetProfile @relation(fields: [petProfileId], references: [id], onDelete: Cascade)
+}
+
+model Report {
+  id           String    @id @default(cuid())
+  petProfileId String
+  reportType   ReportType
+  title        String
+  content      String
+  score        Int
+  createdAt    DateTime  @default(now())
+  petProfile   PetProfile @relation(fields: [petProfileId], references: [id], onDelete: Cascade)
+}
+
+model CommunityGroup {
+  id          String          @id @default(cuid())
+  groupType   GroupType
+  slug        String          @unique
+  name        String
+  description String
+  memberCount Int             @default(0)
+  posts       CommunityPost[]
+}
+
+model CommunityPost {
+  id        String         @id @default(cuid())
+  groupId    String
+  authorId   String
+  title      String
+  content    String
+  createdAt  DateTime       @default(now())
+  group      CommunityGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  author     User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+model Product {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  name          String
+  category      String
+  price         Int
+  discountPrice Int?
+  tags          Json
+  image         String
+  description   String
+}
+
+model Bundle {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  typeSlug    String
+  description String
+  price       Int
+  items       Json
+}
+
+model Recommendation {
+  id                 String             @id @default(cuid())
+  petProfileId       String
+  recommendationType RecommendationType
+  payload            Json
+  createdAt          DateTime           @default(now())
+  petProfile         PetProfile         @relation(fields: [petProfileId], references: [id], onDelete: Cascade)
+}
+
+model SavedItem {
+  id       String        @id @default(cuid())
+  userId    String
+  itemType SavedItemType
+  itemId   String
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model FamilyMember {
+  id          String    @id @default(cuid())
+  petProfileId String
+  userId      String
+  role        String
+  permissions Json
+  petProfile  PetProfile @relation(fields: [petProfileId], references: [id], onDelete: Cascade)
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SitterAccess {
+  id          String    @id @default(cuid())
+  petProfileId String
+  invitedEmail String
+  permissions Json
+  expiresAt   DateTime
+  petProfile  PetProfile @relation(fields: [petProfileId], references: [id], onDelete: Cascade)
+}

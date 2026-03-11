@@ -1,35 +1,65 @@
-# v0-pet-stay-ai-landing-page
+# PetStay AI
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
+PetStay AI is a production-oriented, mobile-first consumer pet-tech app foundation built on Next.js App Router.
 
-## Built with v0
+## Product Scope
+- Viral dog video personality test
+- 16-type result card system
+- AI chatbot explanation flow
+- Today routine / pre-leave / after-return / 7-day plan
+- After-leave and weekly reports
+- Owner-dog compatibility
+- Type / breed / local community
+- Personalized commerce and bundles
+- Family sharing and sitter-access scaffolding
 
-This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
+## Tech
+- Next.js App Router
+- TypeScript
+- Tailwind CSS v4
+- shadcn/ui primitives
+- Mock-first service layer
+- Prisma schema scaffold for PostgreSQL
 
-[Continue working on v0 →](https://v0.app/chat/projects/prj_RRAmvGsujnsbLXM3awM30lsQSgIo)
+## Key Folders
+- `app/`: public entry routes and signed-in app routes
+- `components/`: app shell, cards, chat, feed, commerce UI
+- `features/`: personality test, chatbot, routine, report, compatibility, community, commerce, profiles
+- `constants/`: navigation and product-level constants
+- `types/`: domain types
+- `data/`: personality system and mock app data
+- `services/`: mock backend/service abstractions
+- `store/`: persisted client app state
+- `actions/`: server action scaffold
+- `api/`: swappable API abstraction layer
+- `prisma/`: schema and seed scaffold
+- `db/`: schema notes
+- `mocks/`: seed re-exports
 
-## Getting Started
-
-First, run the development server:
-
+## Local Run
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Build
+```bash
+npm run build
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Mock Seed Preview
+```bash
+npm run seed:mock
+```
 
-## Learn More
+## Deployment
+This repo is configured for static export.
 
-To learn more, take a look at the following resources:
+Cloudflare Pages settings:
+- Framework preset: `None`
+- Build command: `pnpm build`
+- Build output directory: `out`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
-
-<a href="https://v0.app/chat/api/kiro/clone/cook-kuk/v0-pet-stay-ai-landing-page" alt="Open in Kiro"><img src="https://pdgvvgmkdvyeydso.public.blob.vercel-storage.com/open%20in%20kiro.svg?sanitize=true" /></a>
+## Notes
+- Real auth, payment, video analysis workers, and live AI inference are intentionally mocked/scaffolded.
+- The architecture is organized so real services can replace mock service functions later.
