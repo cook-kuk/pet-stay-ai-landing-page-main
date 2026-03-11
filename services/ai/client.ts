@@ -1,27 +1,27 @@
-import { currentUser, petProfiles, products, reports, routinePlans } from '@/data/mock-db'
-import { personalityTypeMap } from '@/data/personality-types'
+import { coachSnapshot } from '@/features/chat/mock/coach-data'
+import { normalizeAiResponse } from '@/features/chat/lib/response-adapter'
 import { getMockAiReply } from '@/services/ai/mock-chat'
-import type { AiGatewayPayload, AiReply } from '@/types/ai'
+import type { CoachGatewayPayload, CoachResponse } from '@/features/chat/types'
 
 const gatewayUrl = process.env.NEXT_PUBLIC_AI_GATEWAY_URL
 
-function buildPayload(prompt: string): AiGatewayPayload {
-  const pet = petProfiles[0]
-  const type = personalityTypeMap[pet.mainPersonalityType]
-
+function buildPayload(prompt: string): CoachGatewayPayload {
   return {
     prompt,
-    petName: pet.name,
-    breed: pet.breed,
-    typeName: type.name,
-    typeSlug: type.slug,
-    recentReport: reports[0]?.content ?? '최근 리포트가 아직 없어요.',
-    routineTitles: routinePlans.map((plan) => plan.title),
-    savedProductNames: products.slice(0, 3).map((product) => product.name),
+    petName: coachSnapshot.petName,
+    breed: coachSnapshot.breed,
+    typeName: coachSnapshot.personalityName,
+    typeSlug: coachSnapshot.personalitySlug,
+    moodSummary: coachSnapshot.moodSummary,
+    recentReport: coachSnapshot.latestReportSummary,
+    latestVideoResult: coachSnapshot.latestVideoResult,
+    routineTitles: ['짧은 집중 산책', '외출 전 분리 연습', '귀가 후 진정 인사'],
+    savedProductNames: ['안정 노즈워크 매트', '귀가 후 릴렉스 브러시'],
+    familySharingSummary: coachSnapshot.familySharingSummary,
   }
 }
 
-export async function getAiReply(prompt: string): Promise<AiReply> {
+export async function getAiReply(prompt: string): Promise<CoachResponse> {
   const payload = buildPayload(prompt)
 
   if (!gatewayUrl) {
@@ -33,7 +33,7 @@ export async function getAiReply(prompt: string): Promise<AiReply> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-PetStay-User': currentUser.id,
+        'X-PetStay-User': 'user-1',
       },
       body: JSON.stringify(payload),
     })
@@ -42,10 +42,11 @@ export async function getAiReply(prompt: string): Promise<AiReply> {
       throw new Error(`AI gateway failed: ${response.status}`)
     }
 
-    const data = (await response.json()) as AiReply
-    return { ...data, source: 'llm' }
+    const data = await response.json()
+    return normalizeAiResponse(data, payload, 'llm', 'live')
   } catch {
-    return getMockAiReply(payload)
+    const fallback = await getMockAiReply(payload)
+    return { ...fallback, transport: 'fallback' }
   }
 }
 
