@@ -6,7 +6,7 @@ PetStay AI is a mobile-first, product-oriented consumer pet-tech prototype built
 - Viral short-video dog personality test
 - 16-type result card and deep type drawer experience
 - Interactive upload, analyzing, and result flow
-- AI chatbot with branching quick actions
+- AI chatbot with branching quick actions and next-step cards
 - Today routine, after-leave reports, weekly progress, saved cards, recommendations
 - Compatibility flow with owner selector and share-ready score
 - Type / breed / local communities with join previews
@@ -21,12 +21,14 @@ PetStay AI is a mobile-first, product-oriented consumer pet-tech prototype built
 - Framer Motion
 - Mock-first service layer
 - Prisma schema scaffold for PostgreSQL
+- Optional external AI gateway for live LLM integration
 
 ## Main Structure
 - `app/`: route-based public and signed-in app surfaces
 - `components/`: app shell, cards, sheets/drawers, shared app UI
 - `features/`: product modules by domain
 - `constants/`, `types/`, `data/`, `services/`, `store/`, `actions/`, `api/`
+- `workers/`: external AI gateway example for secure LLM proxying
 - `prisma/`: schema and seed scaffold
 - `db/`, `mocks/`: integration notes and seed exports
 
@@ -46,6 +48,24 @@ npm run build
 npm run seed:mock
 ```
 
+## Live LLM Mode
+The site is statically exported, so the browser should not call OpenAI directly.
+Use an external gateway and set:
+
+```bash
+NEXT_PUBLIC_AI_GATEWAY_URL=https://your-worker-or-api.example.com
+```
+
+If this value is empty, the chatbot uses the built-in smart mock assistant.
+
+A Cloudflare Worker example is included in:
+- `workers/openai-gateway.ts`
+
+Recommended live setup:
+1. Deploy the web app as-is to Cloudflare Pages.
+2. Deploy the worker separately with `OPENAI_API_KEY` configured securely.
+3. Point `NEXT_PUBLIC_AI_GATEWAY_URL` at that worker URL.
+
 ## Deployment
 Configured for static export.
 
@@ -55,5 +75,6 @@ Cloudflare Pages:
 - Build output directory: `out`
 
 ## Notes
-- Auth, payments, real video analysis workers, and real LLM/chat backends are mocked but structurally separated for future replacement.
+- Auth, payments, real video analysis workers, and long-term memory are still mocked/scaffolded.
 - The current prototype is designed to feel app-like and reusable, not just promotional.
+- Live LLM is now architecturally prepared without exposing API keys in the client.

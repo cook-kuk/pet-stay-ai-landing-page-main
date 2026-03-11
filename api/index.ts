@@ -1,10 +1,11 @@
-import { getChatResponse, getCommerceData, getCommunityFeed, getPersonalityResult, getReports, getRoutinePlans } from '@/services/mock-service'
+import { getAiReply } from '@/services/ai/client'
+import { getCommerceData, getCommunityFeed, getPersonalityResult, getReports, getRoutinePlans } from '@/services/mock-service'
 import type { PersonalitySlug, SavedItem } from '@/types/domain'
 
 export const api = {
   uploadTestVideo: async () => ({ uploadId: 'upload-1', status: 'analyzing' as const }),
   getPersonalityResult: async (type?: PersonalitySlug) => getPersonalityResult(type),
-  getChatbotResponse: async (prompt: string) => getChatResponse(prompt),
+  getChatbotResponse: async (prompt: string) => getAiReply(prompt),
   getRoutinePlan: async () => getRoutinePlans(),
   getReports: async () => getReports(),
   getCommunityFeeds: async (filter?: string) => getCommunityFeed(filter),
