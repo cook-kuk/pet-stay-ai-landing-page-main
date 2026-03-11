@@ -1,40 +1,34 @@
 # PetStay AI
 
-PetStay AI is a production-oriented, mobile-first consumer pet-tech app foundation built on Next.js App Router.
+PetStay AI is a mobile-first, product-oriented consumer pet-tech prototype built on Next.js App Router.
 
-## Product Scope
-- Viral dog video personality test
-- 16-type result card system
-- AI chatbot explanation flow
-- Today routine / pre-leave / after-return / 7-day plan
-- After-leave and weekly reports
-- Owner-dog compatibility
-- Type / breed / local community
-- Personalized commerce and bundles
-- Family sharing and sitter-access scaffolding
+## Product Experience
+- Viral short-video dog personality test
+- 16-type result card and deep type drawer experience
+- Interactive upload, analyzing, and result flow
+- AI chatbot with branching quick actions
+- Today routine, after-leave reports, weekly progress, saved cards, recommendations
+- Compatibility flow with owner selector and share-ready score
+- Type / breed / local communities with join previews
+- Personalized commerce with type-based products and purpose bundles
+- Family sharing and sitter-access surfaces
 
 ## Tech
 - Next.js App Router
 - TypeScript
 - Tailwind CSS v4
 - shadcn/ui primitives
+- Framer Motion
 - Mock-first service layer
 - Prisma schema scaffold for PostgreSQL
 
-## Key Folders
-- `app/`: public entry routes and signed-in app routes
-- `components/`: app shell, cards, chat, feed, commerce UI
-- `features/`: personality test, chatbot, routine, report, compatibility, community, commerce, profiles
-- `constants/`: navigation and product-level constants
-- `types/`: domain types
-- `data/`: personality system and mock app data
-- `services/`: mock backend/service abstractions
-- `store/`: persisted client app state
-- `actions/`: server action scaffold
-- `api/`: swappable API abstraction layer
+## Main Structure
+- `app/`: route-based public and signed-in app surfaces
+- `components/`: app shell, cards, sheets/drawers, shared app UI
+- `features/`: product modules by domain
+- `constants/`, `types/`, `data/`, `services/`, `store/`, `actions/`, `api/`
 - `prisma/`: schema and seed scaffold
-- `db/`: schema notes
-- `mocks/`: seed re-exports
+- `db/`, `mocks/`: integration notes and seed exports
 
 ## Local Run
 ```bash
@@ -53,13 +47,13 @@ npm run seed:mock
 ```
 
 ## Deployment
-This repo is configured for static export.
+Configured for static export.
 
-Cloudflare Pages settings:
+Cloudflare Pages:
 - Framework preset: `None`
 - Build command: `pnpm build`
 - Build output directory: `out`
 
 ## Notes
-- Real auth, payment, video analysis workers, and live AI inference are intentionally mocked/scaffolded.
-- The architecture is organized so real services can replace mock service functions later.
+- Auth, payments, real video analysis workers, and real LLM/chat backends are mocked but structurally separated for future replacement.
+- The current prototype is designed to feel app-like and reusable, not just promotional.

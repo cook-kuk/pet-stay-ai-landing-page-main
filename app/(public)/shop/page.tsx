@@ -1,14 +1,13 @@
 import { PageShell } from '@/components/shared/page-shell'
 import { SectionHeader } from '@/components/shared/section-header'
-import { CommerceShowcase } from '@/features/commerce/commerce-showcase'
-import { bundles, products } from '@/data/mock-db'
+import { PersonalizedCommerce } from '@/features/commerce/personalized-commerce'
 
 export default function ShopPage() {
   return (
     <PageShell className='px-4 py-5'>
       <div className='space-y-6'>
-        <SectionHeader eyebrow='Commerce' title='타입 기반 추천 상품' description='왜 이 상품이 지금 필요한지 이유 텍스트까지 함께 보여줍니다.' />
-        <CommerceShowcase products={products} bundles={bundles} />
+        <SectionHeader eyebrow='Commerce' title='개인화 추천 쇼핑' description='유형 기반 추천과 목적형 번들이 추천 이유와 함께 노출됩니다.' />
+        <PersonalizedCommerce />
       </div>
     </PageShell>
   )
