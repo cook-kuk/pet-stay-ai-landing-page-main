@@ -21,14 +21,14 @@ PetStay AI is a mobile-first, product-oriented consumer pet-tech prototype built
 - Framer Motion
 - Mock-first service layer
 - Prisma schema scaffold for PostgreSQL
-- Optional external AI gateway for live LLM integration
+- Optional external Claude API gateway for live LLM integration
 
 ## Main Structure
 - `app/`: route-based public and signed-in app surfaces
 - `components/`: app shell, cards, sheets/drawers, shared app UI
 - `features/`: product modules by domain
 - `constants/`, `types/`, `data/`, `services/`, `store/`, `actions/`, `api/`
-- `workers/`: external AI gateway example for secure LLM proxying
+- `workers/`: external AI gateway example for secure Claude proxying
 - `prisma/`: schema and seed scaffold
 - `db/`, `mocks/`: integration notes and seed exports
 
@@ -48,8 +48,8 @@ npm run build
 npm run seed:mock
 ```
 
-## Live LLM Mode
-The site is statically exported, so the browser should not call OpenAI directly.
+## Live Claude Mode
+The site is statically exported, so the browser should not call Anthropic directly.
 Use an external gateway and set:
 
 ```bash
@@ -59,11 +59,11 @@ NEXT_PUBLIC_AI_GATEWAY_URL=https://your-worker-or-api.example.com
 If this value is empty, the chatbot uses the built-in smart mock assistant.
 
 A Cloudflare Worker example is included in:
-- `workers/openai-gateway.ts`
+- `workers/anthropic-gateway.ts`
 
 Recommended live setup:
 1. Deploy the web app as-is to Cloudflare Pages.
-2. Deploy the worker separately with `OPENAI_API_KEY` configured securely.
+2. Deploy the worker separately with `ANTHROPIC_API_KEY` configured as a secret.
 3. Point `NEXT_PUBLIC_AI_GATEWAY_URL` at that worker URL.
 
 ## Deployment
@@ -77,4 +77,4 @@ Cloudflare Pages:
 ## Notes
 - Auth, payments, real video analysis workers, and long-term memory are still mocked/scaffolded.
 - The current prototype is designed to feel app-like and reusable, not just promotional.
-- Live LLM is now architecturally prepared without exposing API keys in the client.
+- Live Claude support is architecturally prepared without exposing API keys in the client.
