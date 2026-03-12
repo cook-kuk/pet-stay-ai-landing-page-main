@@ -226,3 +226,17 @@ export interface CoachDrawerPreset {
   blocks: CoachRichBlock[]
   primaryAction: CoachActionSuggestion
 }
+
+export interface CoachConversation {
+  id: string
+  title: string
+  preview: string
+  updatedAt: string
+  activeSurface: CoachSurface
+  messages: CoachMessage[]
+  routineCompletion: string[]
+  savedAnswerIds: string[]
+  recentPrompts: string[]
+  lastUserPrompt: string | null
+  shareNotice: string | null
+}

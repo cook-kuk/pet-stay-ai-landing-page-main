@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { findCoachAction, getCoachQuickActions } from '@/features/chat/actions/coach-actions'
 import {
   buildBlocksForIntent,
@@ -13,6 +13,7 @@ import {
 } from '@/features/chat/mock/coach-data'
 import { getAiReply, isLiveAiEnabled } from '@/services/ai/client'
 import type {
+  CoachConversation,
   CoachDrawerPreset,
   CoachIntent,
   CoachMessage,
@@ -21,7 +22,7 @@ import type {
   CoachSurface,
 } from '@/features/chat/types'
 
-const STORAGE_KEY = 'petstay-chat-coach-v2'
+const STORAGE_KEY = 'petstay-chat-coach-v3'
 
 function createAssistantMessage(response: CoachResponse, overrides?: Partial<CoachMessage>): CoachMessage {
   return {
@@ -49,44 +50,93 @@ function seedMessages(): CoachMessage[] {
   }))
 }
 
+function buildConversationTitle(prompt?: string) {
+  if (!prompt?.trim()) return '새 코칭 대화'
+  const normalized = prompt.replace(/\s+/g, ' ').trim()
+  return normalized.length > 24 ? `${normalized.slice(0, 24)}…` : normalized
+}
+
+function createConversation(prompt?: string): CoachConversation {
+  const now = new Date().toISOString()
+  return {
+    id: `conversation-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    title: buildConversationTitle(prompt),
+    preview: prompt?.trim() || '몽이의 성향과 오늘 상태를 기준으로 코칭을 시작해보세요.',
+    updatedAt: now,
+    activeSurface: 'coach',
+    messages: seedMessages(),
+    routineCompletion: ['routine-1'],
+    savedAnswerIds: [],
+    recentPrompts: coachSnapshot.recentPromptMemory,
+    lastUserPrompt: null,
+    shareNotice: null,
+  }
+}
+
+function updateConversation(
+  conversations: CoachConversation[],
+  conversationId: string,
+  updater: (conversation: CoachConversation) => CoachConversation
+) {
+  return conversations.map((conversation) =>
+    conversation.id === conversationId ? updater(conversation) : conversation
+  )
+}
+
 export function useAiCoach() {
-  const [messages, setMessages] = useState<CoachMessage[]>(seedMessages)
+  const pendingRef = useRef(false)
+  const [conversations, setConversations] = useState<CoachConversation[]>(() => [createConversation()])
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
   const [composer, setComposer] = useState('')
-  const [activeSurface, setActiveSurface] = useState<CoachSurface>('coach')
   const [activeDrawer, setActiveDrawer] = useState<CoachSurface | null>(null)
   const [drawerPreset, setDrawerPreset] = useState<CoachDrawerPreset>(() => getDrawerPreset('coach'))
-  const [routineCompletion, setRoutineCompletion] = useState<string[]>(['routine-1'])
-  const [savedAnswerIds, setSavedAnswerIds] = useState<string[]>([])
-  const [recentPrompts, setRecentPrompts] = useState<string[]>(coachSnapshot.recentPromptMemory)
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null)
-  const [lastUserPrompt, setLastUserPrompt] = useState<string | null>(null)
-  const [shareNotice, setShareNotice] = useState<string | null>(null)
-  const pendingRef = useRef(false)
 
   useEffect(() => {
     const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (!raw) return
+    if (!raw) {
+      setActiveConversationId((previous) => previous ?? conversations[0]?.id ?? null)
+      return
+    }
+
     const parsed = JSON.parse(raw) as Partial<{
-      messages: CoachMessage[]
-      routineCompletion: string[]
-      savedAnswerIds: string[]
-      recentPrompts: string[]
-      activeSurface: CoachSurface
+      conversations: CoachConversation[]
+      activeConversationId: string
     }>
 
-    if (parsed.messages?.length) setMessages(parsed.messages)
-    if (parsed.routineCompletion) setRoutineCompletion(parsed.routineCompletion)
-    if (parsed.savedAnswerIds) setSavedAnswerIds(parsed.savedAnswerIds)
-    if (parsed.recentPrompts) setRecentPrompts(parsed.recentPrompts)
-    if (parsed.activeSurface) setActiveSurface(parsed.activeSurface)
+    if (parsed.conversations?.length) {
+      setConversations(parsed.conversations)
+      setActiveConversationId(parsed.activeConversationId ?? parsed.conversations[0].id)
+    }
   }, [])
 
   useEffect(() => {
-    window.localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ messages, routineCompletion, savedAnswerIds, recentPrompts, activeSurface })
-    )
-  }, [activeSurface, messages, recentPrompts, routineCompletion, savedAnswerIds])
+    if (!activeConversationId && conversations.length) {
+      setActiveConversationId(conversations[0].id)
+    }
+  }, [activeConversationId, conversations])
+
+  useEffect(() => {
+    if (!activeConversationId) return
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ conversations, activeConversationId }))
+  }, [activeConversationId, conversations])
+
+  const activeConversation = useMemo(
+    () => conversations.find((conversation) => conversation.id === activeConversationId) ?? conversations[0],
+    [activeConversationId, conversations]
+  )
+
+  const messages = activeConversation?.messages ?? []
+  const activeSurface = activeConversation?.activeSurface ?? 'coach'
+  const routineCompletion = activeConversation?.routineCompletion ?? ['routine-1']
+  const savedAnswerIds = activeConversation?.savedAnswerIds ?? []
+  const recentPrompts = activeConversation?.recentPrompts ?? coachSnapshot.recentPromptMemory
+  const shareNotice = activeConversation?.shareNotice ?? null
+
+  const patchActiveConversation = (updater: (conversation: CoachConversation) => CoachConversation) => {
+    if (!activeConversationId) return
+    setConversations((previous) => updateConversation(previous, activeConversationId, updater))
+  }
 
   const appendLocalMessage = (intent: CoachIntent, text: string, surface = inferSurfaceFromIntent(intent)) => {
     const response: CoachResponse = {
@@ -100,10 +150,16 @@ export function useAiCoach() {
       transport: isLiveAiEnabled() ? 'fallback' : 'mock',
       contextUsed: buildContextReferences(surface),
     }
+
     const message = createAssistantMessage(response)
-    setMessages((previous) => [...previous, message])
+    patchActiveConversation((conversation) => ({
+      ...conversation,
+      messages: [...conversation.messages, message],
+      activeSurface: surface,
+      updatedAt: message.createdAt,
+      preview: text,
+    }))
     setDrawerPreset(getDrawerPreset(surface))
-    setActiveSurface(surface)
     setActiveDrawer(surface)
   }
 
@@ -111,8 +167,9 @@ export function useAiCoach() {
     const fullText = response.text
     const step = Math.max(6, Math.round(fullText.length / 16))
 
-    setMessages((previous) =>
-      previous.map((message) =>
+    patchActiveConversation((conversation) => ({
+      ...conversation,
+      messages: conversation.messages.map((message) =>
         message.id === placeholderId
           ? {
               ...message,
@@ -125,14 +182,15 @@ export function useAiCoach() {
               contextUsed: response.contextUsed,
             }
           : message
-      )
-    )
+      ),
+    }))
 
     for (let index = step; index < fullText.length + step; index += step) {
       await new Promise((resolve) => window.setTimeout(resolve, 18))
       const chunk = fullText.slice(0, index)
-      setMessages((previous) =>
-        previous.map((message) =>
+      patchActiveConversation((conversation) => ({
+        ...conversation,
+        messages: conversation.messages.map((message) =>
           message.id === placeholderId
             ? {
                 ...message,
@@ -144,12 +202,13 @@ export function useAiCoach() {
                 contextUsed: response.contextUsed,
               }
             : message
-        )
-      )
+        ),
+      }))
     }
 
-    setMessages((previous) =>
-      previous.map((message) =>
+    patchActiveConversation((conversation) => ({
+      ...conversation,
+      messages: conversation.messages.map((message) =>
         message.id === placeholderId
           ? {
               ...message,
@@ -162,7 +221,7 @@ export function useAiCoach() {
                       ...block,
                       items: block.items.map((item) => ({
                         ...item,
-                        completed: routineCompletion.includes(item.id) || item.completed,
+                        completed: conversation.routineCompletion.includes(item.id) || item.completed,
                       })),
                     }
                   : block
@@ -175,25 +234,26 @@ export function useAiCoach() {
               confidence: response.confidence,
               errorMessage:
                 response.transport === 'fallback'
-                  ? '실시간 Claude 연결이 잠시 불안정해서, 앱 내 코치 로직으로 이어서 도와드렸어요.'
+                  ? '실시간 Claude 응답이 잠시 불안정해서 앱 내 코치 로직으로 이어서 도와드렸어요.'
                   : undefined,
             }
           : message
-      )
-    )
+      ),
+      updatedAt: new Date().toISOString(),
+      preview: fullText,
+      activeSurface: inferSurfaceFromIntent(response.intent),
+    }))
   }
 
   const sendPrompt = async (prompt: string, surface?: CoachSurface) => {
-    if (!prompt.trim() || pendingRef.current) return
+    if (!prompt.trim() || pendingRef.current || !activeConversationId) return
 
     pendingRef.current = true
     setPendingPrompt(prompt)
-    setLastUserPrompt(prompt)
-    setShareNotice(null)
+    setComposer('')
+    setDrawerPreset(getDrawerPreset(surface ?? activeSurface))
 
     const nextRecent = [prompt, ...recentPrompts.filter((item) => item !== prompt)].slice(0, 5)
-    setRecentPrompts(nextRecent)
-
     const userMessage: CoachMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -207,7 +267,7 @@ export function useAiCoach() {
     const placeholder: CoachMessage = {
       id: placeholderId,
       role: 'assistant',
-      text: '몽이의 성향 결과, 오늘 루틴 상태, 최근 리포트, 저장한 추천을 함께 확인하면서 답을 정리하는 중이에요…',
+      text: '몽이의 성향 결과, 오늘 루틴 상태, 최근 리포트, 저장한 추천을 함께 보고 답을 정리하는 중이에요…',
       createdAt: new Date().toISOString(),
       intent: 'general',
       status: 'thinking',
@@ -215,14 +275,22 @@ export function useAiCoach() {
       transport: isLiveAiEnabled() ? 'live' : 'mock',
     }
 
-    setMessages((previous) => [...previous, userMessage, placeholder])
-    setComposer('')
+    patchActiveConversation((conversation) => ({
+      ...conversation,
+      title: conversation.lastUserPrompt ? conversation.title : buildConversationTitle(prompt),
+      preview: prompt,
+      updatedAt: userMessage.createdAt,
+      recentPrompts: nextRecent,
+      lastUserPrompt: prompt,
+      shareNotice: null,
+      activeSurface: surface ?? conversation.activeSurface,
+      messages: [...conversation.messages, userMessage, placeholder],
+    }))
 
     try {
       const response = await getAiReply(prompt)
       const nextSurface = surface ?? inferSurfaceFromIntent(response.intent)
       setDrawerPreset(getDrawerPreset(nextSurface))
-      setActiveSurface(nextSurface)
       await streamAssistantResponse(placeholderId, response)
     } finally {
       pendingRef.current = false
@@ -231,8 +299,8 @@ export function useAiCoach() {
   }
 
   const runQuickAction = async (action: CoachQuickAction) => {
+    patchActiveConversation((conversation) => ({ ...conversation, activeSurface: action.surface }))
     setDrawerPreset(getDrawerPreset(action.surface))
-    setActiveSurface(action.surface)
     setActiveDrawer(action.surface)
     await sendPrompt(action.prompt, action.surface)
   }
@@ -246,15 +314,25 @@ export function useAiCoach() {
 
     switch (actionId) {
       case 'save-routine':
-        setSavedAnswerIds((previous) => Array.from(new Set([...previous, 'routine-saved'])))
-        appendLocalMessage('routine', '오늘 루틴을 저장해뒀어요. 내일 다시 열어도 같은 흐름에서 이어서 볼 수 있어요.', 'routine')
+        patchActiveConversation((conversation) => ({
+          ...conversation,
+          savedAnswerIds: Array.from(new Set([...conversation.savedAnswerIds, 'routine-saved'])),
+          updatedAt: new Date().toISOString(),
+        }))
+        appendLocalMessage('routine', '오늘 루틴을 저장해뒀어요. 이 대화에서 다시 열어도 같은 흐름으로 이어서 볼 수 있어요.', 'routine')
         return
       case 'share-family':
-        setShareNotice('가족 공유 카드가 준비됐어요. 엄마와 시터가 같은 요약을 볼 수 있도록 맞춰둘게요.')
+        patchActiveConversation((conversation) => ({
+          ...conversation,
+          shareNotice: '가족 공유 카드가 준비됐어요. 이 대화 안에서 가족용 요약도 같이 보관할게요.',
+        }))
         appendLocalMessage('share', '가족이 바로 이해할 수 있도록 오늘 상태와 꼭 맞춰야 할 루틴만 묶어드렸어요.', 'share')
         return
       case 'share-sitter':
-        setShareNotice('시터용 요약을 만들었어요. 인수인계 핵심 3가지만 보이도록 정리했어요.')
+        patchActiveConversation((conversation) => ({
+          ...conversation,
+          shareNotice: '시터용 요약을 만들었어요. 이 대화 기록 안에 인수인계 버전까지 남겨둘게요.',
+        }))
         appendLocalMessage('share', '시터가 꼭 알아야 할 포인트만 남겨서 더 짧고 실전적으로 정리했어요.', 'share')
         return
       case 'report-next':
@@ -264,26 +342,27 @@ export function useAiCoach() {
         appendLocalMessage('community', '질문 초안도 같이 적어드릴게요. “귀가 후 흥분을 30초 안에 낮추는 루틴, 다들 어떻게 맞추셨나요?” 같은 형태가 반응이 좋아요.', 'community')
         return
       case 'save-answer':
-        if (messages.at(-1)?.id) {
-          setSavedAnswerIds((previous) => Array.from(new Set([...previous, messages.at(-1)!.id])))
-        }
-        setShareNotice('이 답변을 저장해뒀어요. 나중에 저장한 카드에서 다시 볼 수 있어요.')
+        patchActiveConversation((conversation) => ({
+          ...conversation,
+          savedAnswerIds: Array.from(new Set([...conversation.savedAnswerIds, conversation.messages.at(-1)?.id ?? 'latest-answer'])),
+          shareNotice: '이 답변을 저장해뒀어요. 나중에 이 대화를 다시 열면 그대로 이어서 볼 수 있어요.',
+        }))
         return
       case 'share-card':
-        appendLocalMessage('share', '궁합 카드가 공유용 포맷으로 정리됐어요. 가족에게 보내기 전에 핵심 포인트만 한 번 더 확인해볼게요.', 'share')
+        appendLocalMessage('share', '궁합 카드를 공유용 포맷으로 다시 정리했어요. 이 대화에서 바로 가족용 카드로 넘길 수 있어요.', 'share')
         return
       default:
-        appendLocalMessage('general', '지금 액션에 맞는 보조 카드를 열어뒀어요. 필요한 흐름부터 이어서 고르면 돼요.', 'coach')
+        appendLocalMessage('general', '지금 액션에 맞는 보조 카드를 열어뒀어요. 필요한 흐름부터 이 대화 안에서 이어가면 돼요.', 'coach')
     }
   }
 
   const toggleRoutine = (id: string) => {
-    setRoutineCompletion((previous) =>
-      previous.includes(id) ? previous.filter((item) => item !== id) : [...previous, id]
-    )
-
-    setMessages((previous) =>
-      previous.map((message) => ({
+    patchActiveConversation((conversation) => ({
+      ...conversation,
+      routineCompletion: conversation.routineCompletion.includes(id)
+        ? conversation.routineCompletion.filter((item) => item !== id)
+        : [...conversation.routineCompletion, id],
+      messages: conversation.messages.map((message) => ({
         ...message,
         blocks: message.blocks?.map((block) =>
           block.type === 'routine-checklist'
@@ -295,16 +374,52 @@ export function useAiCoach() {
               }
             : block
         ),
-      }))
+      })),
+      updatedAt: new Date().toISOString(),
+    }))
+  }
+
+  const createNewConversation = () => {
+    const next = createConversation()
+    setConversations((previous) => [next, ...previous])
+    setActiveConversationId(next.id)
+    setDrawerPreset(getDrawerPreset('coach'))
+    setActiveDrawer(null)
+    setComposer('')
+    setPendingPrompt(null)
+  }
+
+  const selectConversation = (conversationId: string) => {
+    setActiveConversationId(conversationId)
+    const selected = conversations.find((conversation) => conversation.id === conversationId)
+    setDrawerPreset(getDrawerPreset(selected?.activeSurface ?? 'coach'))
+    setActiveDrawer(null)
+    setComposer('')
+    setPendingPrompt(null)
+  }
+
+  const renameConversation = (conversationId: string, title: string) => {
+    const nextTitle = title.trim()
+    if (!nextTitle) return
+    setConversations((previous) =>
+      updateConversation(previous, conversationId, (conversation) => ({ ...conversation, title: nextTitle, updatedAt: new Date().toISOString() }))
     )
   }
 
   return {
+    conversations,
+    activeConversationId,
+    activeConversation,
+    selectConversation,
+    createNewConversation,
+    renameConversation,
     messages,
     composer,
     setComposer,
     activeSurface,
-    setActiveSurface,
+    setActiveSurface: (surface: CoachSurface) => {
+      patchActiveConversation((conversation) => ({ ...conversation, activeSurface: surface }))
+    },
     activeDrawer,
     openDrawer: (surface: CoachSurface) => {
       setDrawerPreset(getDrawerPreset(surface))
@@ -324,8 +439,8 @@ export function useAiCoach() {
     runActionById,
     toggleRoutine,
     regenerateLast: async () => {
-      if (lastUserPrompt) {
-        await sendPrompt(lastUserPrompt, activeSurface)
+      if (activeConversation?.lastUserPrompt) {
+        await sendPrompt(activeConversation.lastUserPrompt, activeConversation.activeSurface)
       }
     },
     saveLatestAnswer: () => runActionById('save-answer'),

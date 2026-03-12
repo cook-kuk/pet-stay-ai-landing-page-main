@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { ContextPanel } from '@/features/chat/components/context-panel'
+import { ConversationSwitcher } from '@/features/chat/components/conversation-switcher'
 import { QuickActionsGrid } from '@/features/chat/components/quick-actions-grid'
 import { RichMessageRenderer } from '@/features/chat/components/rich-message-renderer'
 import { useAiCoach } from '@/features/chat/hooks/use-ai-coach'
@@ -20,61 +21,67 @@ import { Bot, Clock3, MessageSquareShare, Mic, Sparkles, Wand2 } from 'lucide-re
 
 const surfaceSummary: Record<CoachSurface, { title: string; description: string; href?: string; cta?: string }> = {
   coach: {
-    title: "대화로 이어지는 AI 코치",
-    description: "몽이의 성향, 루틴, 리포트, 쇼핑, 공유 상태를 모두 엮어서 지금 필요한 다음 행동을 정리해줘요.",
+    title: '대화로 이어지는 AI 코치',
+    description: '몽이의 성향, 루틴, 리포트, 쇼핑, 공유 상태를 모두 엮어서 지금 필요한 다음 행동을 정리해줘요.',
   },
   routine: {
-    title: "오늘 루틴 커맨드 센터",
-    description: "루틴 저장, 완료 체크, 가족 공유까지 한 번에 이어지는 영역이에요.",
-    href: "/dashboard/today",
-    cta: "루틴 전체 보기",
+    title: '오늘 루틴 커맨드 센터',
+    description: '루틴 저장, 완료 체크, 가족 공유까지 한 번에 이어지는 영역이에요.',
+    href: '/dashboard/today',
+    cta: '루틴 전체 보기',
   },
   report: {
-    title: "리포트 해설과 다음 개선안",
-    description: "좋은 신호와 불안 신호를 분리해서 이해하고, 오늘의 개선 포인트까지 이어드려요.",
-    href: "/dashboard/reports",
-    cta: "리포트 전체 보기",
+    title: '리포트 해설과 다음 개선안',
+    description: '좋은 신호와 불안 신호를 분리해서 이해하고, 오늘의 개선 포인트까지 이어드려요.',
+    href: '/dashboard/reports',
+    cta: '리포트 전체 보기',
   },
   shop: {
-    title: "성향 기반 쇼핑 추천",
-    description: "상품 추천 이유, 맞는 유형, 번들 전환까지 한 흐름으로 보이게 만들었어요.",
-    href: "/shop",
-    cta: "샵 열기",
+    title: '성향 기반 쇼핑 추천',
+    description: '상품 추천 이유, 맞는 유형, 번들 전환까지 한 흐름으로 보이게 만들었어요.',
+    href: '/shop',
+    cta: '샵 열기',
   },
   compatibility: {
-    title: "궁합과 상호작용 방식 분석",
-    description: "보호자 스타일과 몽이의 반응 패턴을 함께 보며, 잘 맞는 상호작용을 제안해줘요.",
-    href: "/compatibility",
-    cta: "궁합 전체 보기",
+    title: '궁합과 상호작용 방식 분석',
+    description: '보호자 스타일과 몽이의 반응 패턴을 함께 보며, 잘 맞는 상호작용을 제안해줘요.',
+    href: '/compatibility',
+    cta: '궁합 전체 보기',
   },
   community: {
-    title: "커뮤니티 추천과 참여 동선",
-    description: "같은 성향, 견종, 지역 그룹을 비교해 보고 바로 이동할 수 있어요.",
-    href: "/community",
-    cta: "커뮤니티 열기",
+    title: '커뮤니티 추천과 참여 동선',
+    description: '같은 성향, 견종, 지역 그룹을 비교해 보고 바로 이동할 수 있어요.',
+    href: '/community',
+    cta: '커뮤니티 열기',
   },
   share: {
-    title: "가족 / 시터 공유 허브",
-    description: "가족용 카드와 시터용 인수인계 요약을 대화 중 바로 만들 수 있어요.",
-    href: "/family",
-    cta: "공유 화면 보기",
+    title: '가족 / 시터 공유 허브',
+    description: '가족용 카드와 시터용 인수인계 요약을 대화 중 바로 만들 수 있어요.',
+    href: '/family',
+    cta: '공유 화면 보기',
   },
 }
 
 export function CoachExperience() {
   const {
+    activeConversation,
+    activeConversationId,
     activeDrawer,
     activeSurface,
     closeDrawer,
     composer,
+    conversations,
+    createNewConversation,
     drawerPreset,
     messages,
     pendingPrompt,
     quickActions,
     recentPrompts,
+    renameConversation,
     runActionById,
     runQuickAction,
     saveLatestAnswer,
+    selectConversation,
     sendPrompt,
     setActiveSurface,
     setComposer,
@@ -100,14 +107,15 @@ export function CoachExperience() {
               <div className='flex flex-wrap items-center gap-2'>
                 <p className='text-xl font-semibold tracking-tight'>{snapshot.petName} AI 코치</p>
                 <Badge>{snapshot.trustLabel}</Badge>
+                <Badge variant='secondary'>{activeConversation?.title ?? '새 코칭 대화'}</Badge>
               </div>
               <p className='mt-1 text-sm text-muted-foreground'>최근 성향은 {snapshot.personalityName}이고, 오늘은 {snapshot.moodSummary}</p>
             </div>
           </div>
           <div className='rounded-[24px] border border-primary/15 bg-white/90 px-4 py-3 text-right shadow-sm'>
-            <p className='text-[11px] font-semibold text-muted-foreground'>오늘 상태</p>
-            <p className='mt-1 text-sm font-semibold text-primary'>루틴 1/3 완료</p>
-            <p className='mt-1 text-xs text-muted-foreground'>최근 리포트 82점</p>
+            <p className='text-[11px] font-semibold text-muted-foreground'>현재 대화</p>
+            <p className='mt-1 text-sm font-semibold text-primary'>{activeConversation?.messages.length ?? 0}개 메시지</p>
+            <p className='mt-1 text-xs text-muted-foreground'>{activeConversation?.preview ?? '새로운 코칭을 시작해보세요.'}</p>
           </div>
         </div>
 
@@ -117,6 +125,14 @@ export function CoachExperience() {
           <HeaderMetric label='최근 집비움 리포트' value='82점 / 안정화 진행 중' caption='초반 12분 관리만 더 좋아지면 점수가 크게 오를 수 있어요.' />
         </div>
       </section>
+
+      <ConversationSwitcher
+        conversations={conversations}
+        activeConversationId={activeConversationId}
+        onSelect={selectConversation}
+        onCreate={createNewConversation}
+        onRename={renameConversation}
+      />
 
       <ContextPanel snapshot={{ ...snapshot, recentPromptMemory: recentPrompts }} />
 
@@ -330,7 +346,7 @@ function CoachChatArea({
             </div>
             <div className='flex items-center gap-2'>
               <Badge>Claude 기반</Badge>
-              <Badge variant='secondary'>최근 기억 유지</Badge>
+              <Badge variant='secondary'>대화별 기록</Badge>
             </div>
           </div>
         </CardHeader>
@@ -387,7 +403,7 @@ function CoachChatArea({
             <span className='inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1.5'><Sparkles className='size-3.5' /> 쇼핑 / 커뮤니티 연동</span>
           </div>
           <div className='flex items-center justify-between gap-3'>
-            <p className='text-xs text-muted-foreground'>짧게 물어봐도 괜찮아요. Claude가 이미 몽이의 최근 문맥을 함께 보고 있어요.</p>
+            <p className='text-xs text-muted-foreground'>새 대화로 시작하면 기록이 분리되고, 같은 대화 안에서는 문맥을 이어서 기억해요.</p>
             <Button onClick={onSubmit} disabled={!composer.trim()}>보내기</Button>
           </div>
         </CardContent>
